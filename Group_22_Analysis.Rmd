@@ -24,11 +24,12 @@ library(GGally)
 library(janitor)
 library(gridExtra)
 library(kableExtra)
+library(skimr)
 ```
 
 ## Introduction
 
-We have been tasked with finding out which properties of the furniture influence whether the products price is more than 1000 Saudi Riyals. Here we shall analyse the data provided to us by the company, working with continuous variables for price, width, depth and height as well as categorical variables for category, whether the product is sold online and whether the product is available in multiple colours. 
+We have been tasked with finding out which properties of the furniture influence whether the products price is more than 1000 Saudi Riyals. Here we shall analyse the data provided to us by the company, working with continuous variables for price, width, depth and height as well as categorical variables for category, whether the product is sold online and whether the product is available in multiple colours.
 
 Section 2 consists of an exploratory data analysis of the data. Section 3 contains the contains the formal analysis of fitting the GLMs, the model selection and data visualizations resulting from the model selected. Section 4 contains our conclusions.
 
@@ -54,67 +55,92 @@ data[148,3] = "Cafe furniture"
 
 ## Exploratory Data Analysis
 
-As we are interested in whether a product is sold at more or less than 1000 Riyals, we dichotamised the variable for price into a categorical variable, Expenisve. Products sold for more than 1000 Riyals are denoted "Yes" and products sold for less than 1000 Riyals are denoted "No". Below we provide a table showing the proportion of products considered expensive.
+As we are interested in whether a product is sold at more or less than 1000 Riyals, we dichotamised the variable for price into a categorical variable: Expenisve. Products sold for more than 1000 Riyals are denoted "Yes" and products sold for less than 1000 Riyals are denoted "No". Below we provide a summary table for numerical data and a table showing the proportion of products considered expensive. From the summary table below we can see that the mean of the price is over 1000.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#create ikea_num data for numerical data
+ikea_num<-data %>% select(price, depth, height, width)
+#summary table
+my_skim <- skim_with(numeric = sfl(hist = NULL), 
+                    base = sfl(n = length))
+my_skim(ikea_num) %>%
+  transmute(Variable=skim_variable, n = n, Mean=numeric.mean, SD=numeric.sd,
+            Min=numeric.p0, Median=numeric.p50,  Max=numeric.p100,
+            IQR = numeric.p75-numeric.p50) %>%
+  kable(caption = '\\label{tab:summariesskim} Summary statistics 
+        of the IKEA Saudi Arabia data') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
 #table for overall expensive
 tabyl(data$Expensive) %>%
-  kable(caption= "counts and percentages of products sorted by whether they are expensive or not") %>%
+  kable(caption= "Counts and percentages of products sorted by whether they are expensive or not") %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 
 ```
 
-We now turn our attention to which variables influence whether a product is considered expensive or not. From the scatterplots below we can see that in terms of the continuous variables width appears to be the most important. Item ID does not appear to be influential while both height and depth are marginal.
-
+We now turn our attention to which variables influence whether a product is considered expensive or not. From the scatterplots below we can see that in terms of the continuous variables width appears to be the most important.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #plots
 #boxplot of category and height
 p1 <-ggplot(data = data, aes(x = category, y = price, na.rm=TRUE)) +
-  geom_boxplot(fill= "skyblue") +
-  labs(x = "Category", y = "price")+ 
+  labs(x = "Category", y = "Price")+ 
   theme(legend.position = "none")
 
 #scatterplot of width and expensive
 p2 <- ggplot(data= data, aes(x=width, y = Expensive, na.rm=TRUE)) +
   geom_jitter(width=20) +
-  labs(x="width", y="expensive", title= "Width of product")
+  labs(x="Width", y="Expensive", title= "Width of product")
 
 #scatterplot of depth and expensive
 p3 <- ggplot(data= data, aes(x=depth, y = Expensive, na.rm=TRUE)) +
   geom_jitter(width=20) +
-  labs(x="depth", y="expensive", title="Depth of product")
+  labs(x="Depth", y="Expensive", title="Depth of product")
 
 #scatterplot of height and expensive
 p4 <-ggplot(data= data, aes(x=height, y = Expensive, na.rm=TRUE)) +
   geom_jitter(width=20) +
-  labs(x="height", y="expensive", title="Height of product")
+  labs(x="Height", y="Expensive", title="Height of product")
 
 #scatterplot of volume and expensive
 p5 <-ggplot(data= data, aes(x=volume, y = Expensive, na.rm=TRUE)) +
   geom_jitter(width=20) +
-  labs(x="volume", y= "expensive", title= "Volume of product")
-       
-#scatterplot of item_id and expensive
-p6 <-ggplot(data= data, aes(x=item_id, y = Expensive, na.rm=TRUE)) +
-  geom_jitter(width=20) +
-  labs(x="item_id", y="expensive", title= "item id of product")
-
-grid.arrange(p2, p3, p4, p6, ncol=2)
+  labs(x="Volume", y= "Expensive", title= "Volume of product")
+      
+grid.arrange(p2, p3, p4, p5 ,ncol=2)
 ```
 
-Checking the the continuous variables for any high collinearity, we see from the scatterplot matrix that there is moderate positive correlation between depth and width and also between depth and height. As the strengh is only moderate and the other variables are very weakly correlated, there is not much concern regarding collinearity.
+Checking the continuous variables for any high collinearity, we see from the scatterplot matrix that there is moderate positive correlation between depth and width and also between depth and height. As the strengh is only moderate and the other variables are very weakly correlated, there is not much concern regarding collinearity.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-#poducing gg pairs to check for high collinearity
+#producing ggpairs to check for high collinearity
 continuousdata <- data %>%
   select(item_id, width, depth, height)
 
-ggpairs(continuousdata, title="correlation of continous variables") 
+ggpairs(continuousdata, title="Correlation of continous variables") 
 
 ```
 
-Looking at the categorical variables we can see that as so few products are not sold online, it it unlikely to be influential. Also the proportions for expensive are very similar for multiple colours so it is also unlikely to have much influence.
+
+For some categorical variables and price we create box plot, we can see that for furniture which have multiple colours and sell online may have highier price.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#boxplot 
+b1<-ggplot(data = data, aes(x = other_colors, y = price, fill = other_colors)) +
+  geom_boxplot() +
+  labs(x = "Other colours", y = "Price")+
+  theme(legend.position="bottom")
+
+
+b2<-ggplot(data = data, aes(x = sellable_online, y = price, fill = sellable_online)) +
+  geom_boxplot() +
+  labs(x = "Sellable online", y = "Price")+
+  theme(legend.position="bottom")
+
+grid.arrange(b1,b2,ncol=2)
+```
+
+Further research of categorical variables, we can see that as so few products are not sold online, it is unlikely to be influential. Also the proportions for expensive are very similar for multiple colours so it is also unlikely to have much influence.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -127,15 +153,14 @@ t1 <- data %>%
   adorn_percentages() %>% 
   adorn_pct_formatting() %>% 
   adorn_ns() %>%
-  kable(caption="percentages and counts of products separated whether they have multiple colours ") %>%
+  kable(caption="Percentages and counts of products separated whether they have multiple colours ") %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 t1
 #barplot
 bp1 <- ggplot(data, aes(x = other_colors, fill = Expensive, na.rm=TRUE)) +
   geom_bar(stat = "count", position = "dodge") +
-  xlab("other colours") + ylab("Frequency") +
+  xlab("Other colours") + ylab("Frequency") +
   theme(legend.position="bottom")
-
 #expensive and sold online
 #table
 t2 <- data %>% 
@@ -143,18 +168,15 @@ t2 <- data %>%
   adorn_percentages() %>% 
   adorn_pct_formatting() %>% 
   adorn_ns() %>%
-  kable(caption= "percentages and counts of products separated by whether they are sold online") %>%
+  kable(caption= "Percentages and counts of products separated by whether they are sold online") %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
-
 t2
 #barplot
 bp2 <-ggplot(data, aes(x = sellable_online, fill = Expensive, na.rm=TRUE)) +
   geom_bar(stat = "count", position = "dodge")+
   xlab("Sellable Online") + ylab("Frequency") +
   theme(legend.position= "bottom")
-
 grid.arrange(bp1,bp2,ncol=2)
-
 ```
 
 From the plot below we see that categories is likely to be an influential factor. Wardrobes, Sofas and Armchairs and beds in particular have a high proportion of expensive products. Meanwhile Childrens furniture contains no expensive products at all. Some categories contain so few products that they are unlikely to be influential.
@@ -167,7 +189,7 @@ t3 <- data %>%
   adorn_percentages() %>% 
   adorn_pct_formatting() %>% 
   adorn_ns() %>%
-  kable(caption= "percentages and counts of products sorted by category") %>%
+  kable(caption= "Percentages and counts of products sorted by category") %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 t3
 #barplot
