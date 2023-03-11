@@ -1,8 +1,12 @@
 ---
 title: "Group_22_Analysis"
-author: "Group22"
+author: "Fang Yang, Jonathan Whittle, Kainin Liu, Ziqi Yang and Ziyao Zong"
 date: "2023-03-08"
-output: html_document
+output:
+  pdf_document:
+    number_sections: yes
+  html_document:
+    number_sections: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -27,11 +31,11 @@ library(kableExtra)
 library(skimr)
 ```
 
-## Introduction
+# Introduction {#sec:intro}
 
 We have been tasked with finding out which properties of the furniture influence whether the products price is more than 1000 Saudi Riyals. Here we shall analyse the data provided to us by the company, working with continuous variables for price, width, depth and height as well as categorical variables for category, whether the product is sold online and whether the product is available in multiple colours.
 
-Section 2 consists of an exploratory data analysis of the data. Section 3 contains the contains the formal analysis of fitting the GLMs, the model selection and data visualizations resulting from the model selected. Section 4 contains our conclusions.
+Section \ref{sec:eda} consists of an exploratory data analysis of the data. Section \ref{sec:fda} contains the contains the formal analysis of fitting the GLMs, the model selection and data visualizations resulting from the model selected. Section \ref{sec:con} contains our conclusions.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #data tidying
@@ -53,9 +57,9 @@ data$Expensive <- factor(data$Expensive, labels=c("No", "Yes"))
 data[148,3] = "Cafe furniture"
 ```
 
-## Exploratory Data Analysis
+# Exploratory Data Analysis {#sec:eda}
 
-As we are interested in whether a product is sold at more or less than 1000 Riyals, we dichotamised the variable for price into a categorical variable: Expenisve. Products sold for more than 1000 Riyals are denoted "Yes" and products sold for less than 1000 Riyals are denoted "No". Below we provide a summary table for numerical data and a table showing the proportion of products considered expensive. From the summary table below we can see that the mean of the price is over 1000.
+As we are interested in whether a product is sold at more or less than 1000 Riyals, we dichotamised the variable for price into a categorical variable: Expenisive. Products sold for more than 1000 Riyals are denoted "Yes" and products sold for less than 1000 Riyals are denoted "No". Below we provide a summary table for the numerical data and a table showing the proportion of products considered expensive. From the summary table below we can see that the mean price is over 1000 Riyals.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #create ikea_num data for numerical data
@@ -64,7 +68,7 @@ ikea_num<-data %>% select(price, depth, height, width)
 my_skim <- skim_with(numeric = sfl(hist = NULL), 
                     base = sfl(n = length))
 my_skim(ikea_num) %>%
-  transmute(Variable=skim_variable, n = n, Mean=numeric.mean, SD=numeric.sd,
+  transmute(Variable=skim_variable, n = n, Mean=round(numeric.mean,2), SD=round(numeric.sd,2),
             Min=numeric.p0, Median=numeric.p50,  Max=numeric.p100,
             IQR = numeric.p75-numeric.p50) %>%
   kable(caption = '\\label{tab:summariesskim} Summary statistics 
@@ -82,47 +86,43 @@ We now turn our attention to which variables influence whether a product is cons
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #plots
-#boxplot of category and height
-p1 <-ggplot(data = data, aes(x = category, y = price, na.rm=TRUE)) +
-  labs(x = "Category", y = "Price")+ 
-  theme(legend.position = "none")
 
 #scatterplot of width and expensive
-p2 <- ggplot(data= data, aes(x=width, y = Expensive, na.rm=TRUE)) +
+p1 <- ggplot(data= data, aes(x=width, y = Expensive, na.rm=TRUE)) +
   geom_jitter(width=20) +
   labs(x="Width", y="Expensive", title= "Width of product")
 
 #scatterplot of depth and expensive
-p3 <- ggplot(data= data, aes(x=depth, y = Expensive, na.rm=TRUE)) +
+p2 <- ggplot(data= data, aes(x=depth, y = Expensive, na.rm=TRUE)) +
   geom_jitter(width=20) +
   labs(x="Depth", y="Expensive", title="Depth of product")
 
 #scatterplot of height and expensive
-p4 <-ggplot(data= data, aes(x=height, y = Expensive, na.rm=TRUE)) +
+p3 <-ggplot(data= data, aes(x=height, y = Expensive, na.rm=TRUE)) +
   geom_jitter(width=20) +
   labs(x="Height", y="Expensive", title="Height of product")
 
 #scatterplot of volume and expensive
-p5 <-ggplot(data= data, aes(x=volume, y = Expensive, na.rm=TRUE)) +
+p4 <-ggplot(data= data, aes(x=volume, y = Expensive, na.rm=TRUE)) +
   geom_jitter(width=20) +
   labs(x="Volume", y= "Expensive", title= "Volume of product")
       
-grid.arrange(p2, p3, p4, p5 ,ncol=2)
+grid.arrange(p1, p2, p3, p4 ,ncol=2)
 ```
 
-Checking the continuous variables for any high collinearity, we see from the scatterplot matrix that there is moderate positive correlation between depth and width and also between depth and height. As the strengh is only moderate and the other variables are very weakly correlated, there is not much concern regarding collinearity.
+Checking the continuous variables for any high collinearity, we see from the scatterplot matrix that there is moderate positive correlation between depth and width and also between depth and height. As the strength is only moderate and the correlation between height and depth is very weak, there is not much concern regarding collinearity.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #producing ggpairs to check for high collinearity
 continuousdata <- data %>%
-  select(item_id, width, depth, height)
+  select(width, depth, height)
 
 ggpairs(continuousdata, title="Correlation of continous variables") 
 
 ```
 
+We created box plots looking at price for the categorical variables Sold Online and Multiple colours. From these we can see that furniture being sold in multiple colours makes little impact on price while there is some suggestion that products sold online are more expensive.
 
-For some categorical variables and price we create box plot, we can see that for furniture which have multiple colours and sell online may have highier price.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #boxplot 
@@ -140,7 +140,7 @@ b2<-ggplot(data = data, aes(x = sellable_online, y = price, fill = sellable_onli
 grid.arrange(b1,b2,ncol=2)
 ```
 
-Further research of categorical variables, we can see that as so few products are not sold online, it is unlikely to be influential. Also the proportions for expensive are very similar for multiple colours so it is also unlikely to have much influence.
+From further research of categorical variables, we can see that as so few products are not sold online, it is unlikely to be influential. Also as the proportions for expensive are very similar for multiple colours, it is also unlikely to have much influence.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -200,6 +200,6 @@ ggplot(data, aes(y=category,  fill = Expensive, na.rm=TRUE)) +
   ggtitle("Counts of expensive and not expensive categories")
 ```
 
-## Formal analysis
+# Formal analysis {#sec:fda}
 
-## Conclusions
+# Conclusions {#sec:con}
