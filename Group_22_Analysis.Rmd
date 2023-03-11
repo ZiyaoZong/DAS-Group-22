@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #reading data
-data <- read.csv("~/Desktop/DAS_2/dataset22.csv")
+data <- read.csv("dataset22.csv")
 
 
 #loading libraries
