@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #reading data
-data <- read.csv("dataset22.csv")
+data <- read.csv("~/Desktop/DAS_2/dataset22.csv")
 
 
 #loading libraries
@@ -59,9 +59,9 @@ data[148,3] = "Cafe furniture"
 
 # Exploratory Data Analysis {#sec:eda}
 
-As we are interested in whether a product is sold at more or less than 1000 Riyals, we dichotamised the variable for price into a categorical variable: Expenisive. Products sold for more than 1000 Riyals are denoted "Yes" and products sold for less than 1000 Riyals are denoted "No". Below we provide a summary table for the numerical data and a table showing the proportion of products considered expensive. From the summary table below we can see that the mean price is over 1000 Riyals.
+As we are interested in whether a product is sold at more or less than 1000 Riyals, we dichotamised the variable for price into a categorical variable: Expenisive. Products sold for more than 1000 Riyals are denoted "Yes" and products sold for less than 1000 Riyals are denoted "No". Below we provide a summary table \ref{tab:summariesskim} for the numerical data and a table \ref{tab:percentage} showing the proportion of products considered expensive. From the summary table below we can see that the mean price is over 1000 Riyals.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE,results='markup', fig.show='asis', eval=TRUE, table.pos="H"}
 #create ikea_num data for numerical data
 ikea_num<-data %>% select(price, depth, height, width)
 #summary table
@@ -77,14 +77,14 @@ my_skim(ikea_num) %>%
 
 #table for overall expensive
 tabyl(data$Expensive) %>%
-  kable(caption= "Counts and percentages of products sorted by whether they are expensive or not") %>%
+  kable(caption= '\\label{tab:percentage} Counts and percentages of products sorted by whether they are expensive or not') %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 
 ```
 
-We now turn our attention to which variables influence whether a product is considered expensive or not. From the scatterplots below we can see that in terms of the continuous variables width appears to be the most important.
+We now turn our attention to which variables influence whether a product is considered expensive or not. From the scatterplots, Figure \ref{fig:scatterplot} below we can see that in terms of the continuous variables width appears to be the most important.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:scatterplot}  Summary scatterplot",fig.show='asis'}
 #plots
 
 #scatterplot of width and expensive
@@ -110,9 +110,10 @@ p4 <-ggplot(data= data, aes(x=volume, y = Expensive, na.rm=TRUE)) +
 grid.arrange(p1, p2, p3, p4 ,ncol=2)
 ```
 
-Checking the continuous variables for any high collinearity, we see from the scatterplot matrix that there is moderate positive correlation between depth and width and also between depth and height. As the strength is only moderate and the correlation between height and depth is very weak, there is not much concern regarding collinearity.
+Checking the continuous variables for any high collinearity, we see from the scatterplot matrix, Figure \ref{fig:cor} that there is moderate positive correlation between depth and width and also between depth and height. As the strength is only moderate and the correlation between height and depth is very weak, there is not much concern regarding collinearity.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE,eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:cor} Scatterplot matrix",fig.show='asis'}
+
 #producing ggpairs to check for high collinearity
 continuousdata <- data %>%
   select(width, depth, height)
@@ -121,10 +122,10 @@ ggpairs(continuousdata, title="Correlation of continous variables")
 
 ```
 
-We created box plots looking at price for the categorical variables Sold Online and Multiple colours. From these we can see that furniture being sold in multiple colours makes little impact on price while there is some suggestion that products sold online are more expensive.
+We created boxplots looking at price for the categorical variables Sold Online and Multiple colours. From these Figure \ref{fig:Price} we can see that furniture being sold in multiple colours makes little impact on price while there is some suggestion that products sold online are more expensive.
 
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE,eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:Price} Boxplot of price and categorical variables",fig.show='asis'}
 #boxplot 
 b1<-ggplot(data = data, aes(x = other_colors, y = price, fill = other_colors)) +
   geom_boxplot() +
@@ -140,9 +141,9 @@ b2<-ggplot(data = data, aes(x = sellable_online, y = price, fill = sellable_onli
 grid.arrange(b1,b2,ncol=2)
 ```
 
-From further research of categorical variables, we can see that as so few products are not sold online, it is unlikely to be influential. Also as the proportions for expensive are very similar for multiple colours, it is also unlikely to have much influence.
+From further research of categorical variables, we can see from table \ref{tab:sellable} that as so few products are not sold online, it is unlikely to be influential. And from the barplot, Figure \ref{bar:categorical} as the proportions for expensive are very similar for multiple colours, it is also unlikely to have much influence.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE, eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{bar:categorical}  Barplot of categorical variables",fig.show='asis'}
 
 #categorical variables
 
@@ -153,7 +154,7 @@ t1 <- data %>%
   adorn_percentages() %>% 
   adorn_pct_formatting() %>% 
   adorn_ns() %>%
-  kable(caption="Percentages and counts of products separated whether they have multiple colours ") %>%
+  kable(caption='\\label{tab:colours} Percentages and counts of products separated whether they have multiple colours ') %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 t1
 #barplot
@@ -168,7 +169,7 @@ t2 <- data %>%
   adorn_percentages() %>% 
   adorn_pct_formatting() %>% 
   adorn_ns() %>%
-  kable(caption= "Percentages and counts of products separated by whether they are sold online") %>%
+  kable(caption= '\\label{tab:sellable} Percentages and counts of products separated by whether they are sold online') %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 t2
 #barplot
@@ -179,9 +180,9 @@ bp2 <-ggplot(data, aes(x = sellable_online, fill = Expensive, na.rm=TRUE)) +
 grid.arrange(bp1,bp2,ncol=2)
 ```
 
-From the plot below we see that categories is likely to be an influential factor. Wardrobes, Sofas and Armchairs and beds in particular have a high proportion of expensive products. Meanwhile Childrens furniture contains no expensive products at all. Some categories contain so few products that they are unlikely to be influential.
+From the plot, Figure \ref{bar:category} we see that categories is likely to be an influential factor. Wardrobes, Sofas and Armchairs and beds in particular have a high proportion of expensive products. Meanwhile Childrens furniture contains no expensive products at all. Some categories contain so few products that they are unlikely to be influential.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE, eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{bar:category}  Barplot of expensive and not expensive categories",fig.show='asis'}
 #expensive and categories
 #table
 t3 <- data %>% 
@@ -189,7 +190,7 @@ t3 <- data %>%
   adorn_percentages() %>% 
   adorn_pct_formatting() %>% 
   adorn_ns() %>%
-  kable(caption= "Percentages and counts of products sorted by category") %>%
+  kable(caption= '\\label{tab:category} Percentages and counts of products sorted by category') %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 t3
 #barplot
