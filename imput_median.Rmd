@@ -1,0 +1,65 @@
+---
+title: "imput_median"
+output: pdf_document
+date: "2023-03-13"
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#reading data
+data <- read.csv("dataset22.csv")
+
+
+#loading libraries
+library(tidyverse)
+library(moderndive)
+library(sjPlot)
+library(stats)
+library(jtools)
+library(GGally)
+library(janitor)
+library(gridExtra)
+library(kableExtra)
+library(skimr)
+library(mice)
+library(Hmisc) 
+library(dplyr)
+library(glm2)
+
+#creating variable volume
+data <- data %>%
+  mutate(volume= height*depth*width)
+```
+
+# Formal analysis {#sec:fda}
+
+```{r cars}
+md.pattern(data)
+newdata <- data
+newdata$Expensive <- NA
+newdata$Expensive[newdata$price<1000] <- 0
+newdata$Expensive[newdata$price>=1000] <- 1
+newdata$Expensive <- factor(newdata$Expensive, labels=c("No", "Yes"))
+#Replace NA values with median
+newdata$imputed_width <- with(newdata, impute(width, median))
+newdata$imputed_height <- with(newdata, impute(height , median))
+newdata$imputed_depth <- with(newdata, impute(depth, median))
+newdata <- select(newdata,-c(width,height,depth,volume,price,X,item_id))
+newdata$category <- as.factor(newdata$category)
+newdata$sellable_online <- as.factor(newdata$sellable_online)
+newdata$other_colors <- as.factor(newdata$other_colors)
+newdata
+#Finding the most appropriate model
+model_full <- glm2(Expensive~., data = newdata, family = binomial)
+summary(model_full)
+drop1(model_full, test="LR")
+model_drop_depth <- glm2(Expensive~., data = newdata[,-7], family = binomial)
+summary(model_drop_depth)
+drop1(model_drop_depth, test="LR")
+model_drop_sellable_online <- glm2(Expensive~., data = newdata[,-c(2,7)], family = binomial)
+summary(model_drop_sellable_online)
+drop1(model_drop_sellable_online, test="LR")
+### Therefore, there is no evidence to reject that the "category", "other_colors", "height" and "width" of the furniture have no influence for whether this furniture cost more than 1000.
+```
+
+
+
