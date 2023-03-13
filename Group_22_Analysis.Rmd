@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #reading data
-data <- read.csv("dataset22.csv")
+data <- read.csv("~/Desktop/DAS_2/dataset22.csv")
 
 
 #loading libraries
@@ -29,6 +29,11 @@ library(janitor)
 library(gridExtra)
 library(kableExtra)
 library(skimr)
+library(skimr)
+library(mice)
+library(Hmisc) 
+library(dplyr)
+library(glm2)
 ```
 
 # Introduction {#sec:intro}
@@ -37,24 +42,48 @@ We have been tasked with finding out which properties of the furniture influence
 
 Section \ref{sec:eda} consists of an exploratory data analysis of the data. Section \ref{sec:fda} contains the contains the formal analysis of fitting the GLMs, the model selection and data visualizations resulting from the model selected. Section \ref{sec:con} contains our conclusions.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r results = 'hide', echo=FALSE, warning=FALSE, message=FALSE}
 #data tidying
-#creating variable volume
-data <- data %>%
-  mutate(volume= height*depth*width)
 
+#delete the row which both depth, height and width are NA
+nas <- c()
+coun = 1
+for(i in 1:nrow(data)){
+  if(is.na(data$depth[i])){
+    if(is.na(data$height[i])){
+      if(is.na(data$width[i])){
+        nas[coun] = i
+        coun = coun + 1
+      }
+    }
+    else
+      next
+  }
+  else
+    next
+}
+data <- data[-nas, ]
+data = data[, -c(1:2)]
 #splitting price into categories expensive yes or no
 data$Expensive <- NA
 data$Expensive[data$price<1000] <- 0
 data$Expensive[data$price>=1000] <- 1
 data$Expensive <- factor(data$Expensive, labels=c("No", "Yes"))
+#use Multiple Imputation to replace NA values
+imp <- mice(data, 5)
+#change imp to dataframe
+data <- complete(imp, action = 2)
 
-
+#creating variable volume
+data <- data %>%
+  mutate(volume= height*depth*width)
+data$volume <- as.numeric(data$volume)
 
 #tidying category with irregular symbol
 #unique(data$category)
-#data[148,3]
-data[148,3] = "Cafe furniture"
+#data[131,1]
+data[131,1] = "Cafe furniture"
+
 ```
 
 # Exploratory Data Analysis {#sec:eda}
@@ -202,5 +231,24 @@ ggplot(data, aes(y=category,  fill = Expensive, na.rm=TRUE)) +
 ```
 
 # Formal analysis {#sec:fda}
+
+```{r results = 'hide',echo=TRUE, warning=FALSE, message=FALSE}
+
+#model full
+data1<-data %>% select(category, sellable_online, other_colors, depth, height, width, Expensive)
+model_full <- glm2(Expensive~., data = data1, family = binomial(link = "logit"))
+summary(model_full)
+drop1(model_full, test="LR")
+#drop depth
+data2<- data %>% select(category, sellable_online, other_colors, height, width, Expensive)
+model_drop_depth <- glm2(Expensive~., data = data2, family = binomial(link = "logit"))
+summary(model_drop_depth)
+drop1(model_drop_depth, test="LR")
+#drop sellable_online
+data3 <- data %>% select(category, other_colors, height, width, Expensive)
+model_drop_sellable_online <- glm2(Expensive~., data = data3, family = binomial(link = "logit"))
+summary(model_drop_sellable_online)
+drop1(model_drop_sellable_online, test="LR")
+```
 
 # Conclusions {#sec:con}
