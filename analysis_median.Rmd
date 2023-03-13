@@ -1,0 +1,239 @@
+---
+title: "Group_22_Analysis"
+author: "Fang Yang, Jonathan Whittle, Kainin Liu, Ziqi Yang and Ziyao Zong"
+date: "2023-03-08"
+output:
+  pdf_document:
+    number_sections: yes
+  html_document:
+    number_sections: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#reading data
+data <- read.csv("~/Desktop/DAS_2/dataset22.csv")
+
+
+#loading libraries
+library(tidyverse)
+library(moderndive)
+library(sjPlot)
+library(stats)
+library(jtools)
+library(GGally)
+library(janitor)
+library(gridExtra)
+library(kableExtra)
+library(skimr)
+library(mice)
+library(Hmisc) 
+library(dplyr)
+library(glm2)
+```
+
+# Introduction {#sec:intro}
+
+We have been tasked with finding out which properties of the furniture influence whether the products price is more than 1000 Saudi Riyals. Here we shall analyse the data provided to us by the company, working with continuous variables for price, width, depth and height as well as categorical variables for category, whether the product is sold online and whether the product is available in multiple colours.
+
+Section \ref{sec:eda} consists of an exploratory data analysis of the data. Section \ref{sec:fda} contains the contains the formal analysis of fitting the GLMs, the model selection and data visualizations resulting from the model selected. Section \ref{sec:con} contains our conclusions.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#data tidying
+
+#splitting price into categories expensive yes or no
+data$Expensive <- NA
+data$Expensive[data$price<1000] <- 0
+data$Expensive[data$price>=1000] <- 1
+data$Expensive <- factor(data$Expensive, labels=c("No", "Yes"))
+
+#Replace NA values with median
+data$width <- with(data, impute(width, median))
+data$height <- with(data, impute(height , median))
+data$depth <- with(data, impute(depth, median))
+
+data$category <- as.factor(data$category)
+data$sellable_online <- as.factor(data$sellable_online)
+data$other_colors <- as.factor(data$other_colors)
+data$depth <- as.numeric(data$depth)
+data$height <- as.numeric(data$height)
+data$width <- as.numeric(data$width)
+
+#creating variable volume
+data <- data %>%
+  mutate(volume= height*depth*width)
+data$volume <- as.numeric(data$volume)
+
+#tidying category with irregular symbol
+#unique(data$category)
+#data[148,3]
+data[148,3] = "Cafe furniture"
+
+```
+
+# Exploratory Data Analysis {#sec:eda}
+
+As we are interested in whether a product is sold at more or less than 1000 Riyals, we dichotamised the variable for price into a categorical variable: Expenisive. Products sold for more than 1000 Riyals are denoted "Yes" and products sold for less than 1000 Riyals are denoted "No". Below we provide a summary table \ref{tab:summariesskim} for the numerical data and a table \ref{tab:percentage} showing the proportion of products considered expensive. From the summary table below we can see that the mean price is over 1000 Riyals.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,results='markup', fig.show='asis', eval=TRUE, table.pos="H"}
+#create ikea_num data for numerical data
+ikea_num<-data %>% select(price, depth, height, width)
+#summary table
+my_skim <- skim_with(numeric = sfl(hist = NULL), 
+                    base = sfl(n = length))
+my_skim(ikea_num) %>%
+  transmute(Variable=skim_variable, n = n, Mean=round(numeric.mean,2), SD=round(numeric.sd,2),
+            Min=numeric.p0, Median=numeric.p50,  Max=numeric.p100,
+            IQR = numeric.p75-numeric.p50) %>%
+  kable(caption = '\\label{tab:summariesskim} Summary statistics 
+        of the IKEA Saudi Arabia data') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+#table for overall expensive
+tabyl(data$Expensive) %>%
+  kable(caption= '\\label{tab:percentage} Counts and percentages of products sorted by whether they are expensive or not') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+```
+
+We now turn our attention to which variables influence whether a product is considered expensive or not. From the boxplots, Figure \ref{fig:summary boxplot} below we can see that in terms of the continuous variables width appears to be the most important.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:summary boxplot}  Summary boxplot",fig.show='asis'}
+#plots
+
+#boxplot of width and expensive
+p1 <- ggplot(data= data, aes(x=width, y = Expensive, na.rm=TRUE)) +
+  geom_boxplot() +
+  labs(x="Width", y="Expensive", title= "Width of product")
+
+#boxplot of depth and expensive
+p2 <- ggplot(data= data, aes(x=depth, y = Expensive, na.rm=TRUE)) +
+  geom_boxplot() +
+  labs(x="Depth", y="Expensive", title="Depth of product")
+
+#boxplot of height and expensive
+p3 <-ggplot(data= data, aes(x=height, y = Expensive, na.rm=TRUE)) +
+  geom_boxplot() +
+  labs(x="Height", y="Expensive", title="Height of product")
+
+#boxplot of volume and expensive
+p4 <-ggplot(data= data, aes(x=volume, y = Expensive, na.rm=TRUE)) +
+  geom_boxplot() +
+  labs(x="Volume", y= "Expensive", title= "Volume of product")
+      
+grid.arrange(p1, p2, p3, p4 ,ncol=2)
+```
+
+Checking the continuous variables for any high collinearity, we see from the scatterplot matrix, Figure \ref{fig:cor} that there is moderate positive correlation between depth and width and also between depth and height. As the strength is only moderate and the correlation between height and depth is very weak, there is not much concern regarding collinearity.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:cor} Scatterplot matrix",fig.show='asis'}
+
+#producing ggpairs to check for high collinearity
+continuousdata <- data %>%
+  select(width, depth, height)
+
+ggpairs(continuousdata, title="Correlation of continous variables") 
+
+```
+
+We created boxplots looking at price for the categorical variables Sold Online and Multiple colours. From these Figure \ref{fig:Price} we can see that furniture being sold in multiple colours makes little impact on price while there is some suggestion that products sold online are more expensive.
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:Price} Boxplot of price and categorical variables",fig.show='asis'}
+#boxplot 
+b1<-ggplot(data = data, aes(x = other_colors, y = price, fill = other_colors)) +
+  geom_boxplot() +
+  labs(x = "Other colours", y = "Price")+
+  theme(legend.position="bottom")
+
+
+b2<-ggplot(data = data, aes(x = sellable_online, y = price, fill = sellable_online)) +
+  geom_boxplot() +
+  labs(x = "Sellable online", y = "Price")+
+  theme(legend.position="bottom")
+
+grid.arrange(b1,b2,ncol=2)
+```
+
+From further research of categorical variables, we can see from table \ref{tab:sellable} that as so few products are not sold online, it is unlikely to be influential. And from the barplot, Figure \ref{bar:categorical} as the proportions for expensive are very similar for multiple colours, it is also unlikely to have much influence.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{bar:categorical}  Barplot of categorical variables",fig.show='asis'}
+
+#categorical variables
+
+#expensive and multiple colours
+#table 
+t1 <- data %>% 
+  tabyl(Expensive, other_colors) %>% 
+  adorn_percentages() %>% 
+  adorn_pct_formatting() %>% 
+  adorn_ns() %>%
+  kable(caption='\\label{tab:colours} Percentages and counts of products separated whether they have multiple colours ') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+t1
+#barplot
+bp1 <- ggplot(data, aes(x = other_colors, fill = Expensive, na.rm=TRUE)) +
+  geom_bar(stat = "count", position = "dodge") +
+  xlab("Other colours") + ylab("Frequency") +
+  theme(legend.position="bottom")
+#expensive and sold online
+#table
+t2 <- data %>% 
+  tabyl(Expensive, sellable_online) %>% 
+  adorn_percentages() %>% 
+  adorn_pct_formatting() %>% 
+  adorn_ns() %>%
+  kable(caption= '\\label{tab:sellable} Percentages and counts of products separated by whether they are sold online') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+t2
+#barplot
+bp2 <-ggplot(data, aes(x = sellable_online, fill = Expensive, na.rm=TRUE)) +
+  geom_bar(stat = "count", position = "dodge")+
+  xlab("Sellable Online") + ylab("Frequency") +
+  theme(legend.position= "bottom")
+grid.arrange(bp1,bp2,ncol=2)
+```
+
+From the plot, Figure \ref{bar:category} we see that categories is likely to be an influential factor. Wardrobes, Sofas and Armchairs and beds in particular have a high proportion of expensive products. Meanwhile Childrens furniture contains no expensive products at all. Some categories contain so few products that they are unlikely to be influential.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{bar:category}  Barplot of expensive and not expensive categories",fig.show='asis'}
+#expensive and categories
+#table
+t3 <- data %>% 
+  tabyl(category, Expensive) %>% 
+  adorn_percentages() %>% 
+  adorn_pct_formatting() %>% 
+  adorn_ns() %>%
+  kable(caption= '\\label{tab:category} Percentages and counts of products sorted by category') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+t3
+#barplot
+ggplot(data, aes(y=category,  fill = Expensive, na.rm=TRUE)) +
+  geom_bar(stat = "count", position = "dodge", width=0.5) +
+  ylab("Category") + xlab("Frequency") +
+  theme(legend.position = "bottom") +
+  ggtitle("Counts of expensive and not expensive categories")
+```
+
+# Formal analysis {#sec:fda}
+
+```{r glm,echo=FALSE, warning=FALSE, message=FALSE}
+#model full
+data1<-data %>% select(category, sellable_online, other_colors, depth, height, width, Expensive)
+model_full <- glm2(Expensive~., data = data1, family = binomial(link = "logit"))
+summary(model_full)
+drop1(model_full, test="LR")
+#drop depth
+data2<- data %>% select(category, sellable_online, other_colors, height, width, Expensive)
+model_drop_depth <- glm2(Expensive~., data = data2, family = binomial(link = "logit"))
+summary(model_drop_depth)
+drop1(model_drop_depth, test="LR")
+#drop sellable_online
+data3 <- data %>% select(category, other_colors, height, width, Expensive)
+model_drop_sellable_online <- glm2(Expensive~., data = data3, family = binomial(link = "logit"))
+summary(model_drop_sellable_online)
+drop1(model_drop_sellable_online, test="LR")
+```
