@@ -82,29 +82,29 @@ tabyl(data$Expensive) %>%
 
 ```
 
-We now turn our attention to which variables influence whether a product is considered expensive or not. From the scatterplots, Figure \ref{fig:scatterplot} below we can see that in terms of the continuous variables width appears to be the most important.
+We now turn our attention to which variables influence whether a product is considered expensive or not. From the boxplots, Figure \ref{fig:summary boxplot} below we can see that in terms of the continuous variables width appears to be the most important.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:scatterplot}  Summary scatterplot",fig.show='asis'}
+```{r, echo=FALSE, warning=FALSE, message=FALSE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:summary boxplot}  Summary boxplot",fig.show='asis'}
 #plots
 
-#scatterplot of width and expensive
+#boxplot of width and expensive
 p1 <- ggplot(data= data, aes(x=width, y = Expensive, na.rm=TRUE)) +
-  geom_jitter(width=20) +
+  geom_boxplot() +
   labs(x="Width", y="Expensive", title= "Width of product")
 
-#scatterplot of depth and expensive
+#boxplot of depth and expensive
 p2 <- ggplot(data= data, aes(x=depth, y = Expensive, na.rm=TRUE)) +
-  geom_jitter(width=20) +
+  geom_boxplot() +
   labs(x="Depth", y="Expensive", title="Depth of product")
 
-#scatterplot of height and expensive
+#boxplot of height and expensive
 p3 <-ggplot(data= data, aes(x=height, y = Expensive, na.rm=TRUE)) +
-  geom_jitter(width=20) +
+  geom_boxplot() +
   labs(x="Height", y="Expensive", title="Height of product")
 
-#scatterplot of volume and expensive
+#boxplot of volume and expensive
 p4 <-ggplot(data= data, aes(x=volume, y = Expensive, na.rm=TRUE)) +
-  geom_jitter(width=20) +
+  geom_boxplot() +
   labs(x="Volume", y= "Expensive", title= "Volume of product")
       
 grid.arrange(p1, p2, p3, p4 ,ncol=2)
