@@ -29,7 +29,6 @@ library(janitor)
 library(gridExtra)
 library(kableExtra)
 library(skimr)
-library(skimr)
 library(mice)
 library(Hmisc) 
 library(dplyr)
@@ -72,7 +71,7 @@ data$Expensive <- factor(data$Expensive, labels=c("No", "Yes"))
 #use Multiple Imputation to replace NA values
 imp <- mice(data, 5)
 #change imp to dataframe
-data <- complete(imp, action = 2)
+data <- complete(imp, action = 5)
 
 #creating variable volume
 data <- data %>%
