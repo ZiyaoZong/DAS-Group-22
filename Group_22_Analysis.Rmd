@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #reading data
-data <- read.csv("dataset22.csv")
+data <- read.csv("C:\\Users\\jhono\\Documents\\glasgow\\DAS\\Group Project 2\\dataset22.csv")
 
 
 #loading libraries
@@ -231,9 +231,9 @@ ggplot(data, aes(y=category,  fill = Expensive, na.rm=TRUE)) +
 
 # Formal analysis {#sec:fda}
 
-As the data provided to us had many incomplete observations we used Multiple imputation to give us a complete dataset. We then fitted a GLM using logistic regression using the logit link function. After starting with the full model we dropped non significant terms Sellable_online, category and other_colors. Each time a term was dropped we saw a significant improvement in BIC. We then tried to fit a model with interaction terms but none of these improved the model so we settled on a model including only the main effects of height, width and depth.
+As the data provided to us had many incomplete observations we used Multiple imputation to give us a nearly complete dataset. Observations with no values for any of height,width and depth wre excluded. We then fitted a GLM using logistic regression using the logit link function. After starting with the full model we dropped non significant terms Sellable_online, category and other_colors. Each time a term was dropped we saw a significant improvement in BIC. We then tried to fit a model with interaction terms but none of these improved the model so we settled on a model including only the main effects of height, width and depth.
 
-```{r,echo=FALSE, warning=FALSE, message=FALSE}
+```{r,echo=FALSE, warning=FALSE, message=FALSE, fig.align = "center",fig.pos = "H" }
 
 #model full
 data1<-data %>% select(category, sellable_online, other_colors, depth, height, width, Expensive)
@@ -271,8 +271,62 @@ mod7 <- glm2(Expensive~ width*height + depth,data = data4, family = binomial(lin
 #AIC 298.55, BIC 319.02
 #none of these models are an improvement so we use model4
 
+
 ```
 
+
+```{r, echo=FALSE, fig.align='center', warning=FALSE, message=FALSE, results='hide'}
+#obtaining coefficients
+modcoefs <- round(coef(model4), 2)
+
+#table for 95%CI <----- can't make this format nicely
+confint(model4) %>%
+  kable()
+
+#plotting log odds
+plot_model(model4, show.values = TRUE, transform = NULL,
+           title = "Log-Odds", show.p = FALSE)
+
+#adding log odds into data
+data <- data %>%
+  mutate(logodds.expensive = predict(model4))
+
+#creating odds
+model4 %>%
+  coef() %>%
+  exp()
+
+#plotting odds
+plot_model(model4, show.values = TRUE, axis.lim = c(1,1.5),
+           title = "Odds (Expensive)", show.p = FALSE)
+
+#adding odds and probabilities to data
+data <- data %>%
+  mutate(odds.expensive = exp(logodds.expensive)) %>%
+  mutate(prob.expensive = fitted(model4))
+
+#plotting probabilities
+#height
+prob1 <- ggplot(data = data, aes(x = height, y = prob.expensive)) +
+  geom_smooth(method="glm", 
+              method.args = list(family="binomial"), 
+              se = FALSE) +
+  labs(x = "height", y = "P(expensive)")
+#depth
+prob2 <- ggplot(data = data, aes(x = depth, y = prob.expensive)) +
+  geom_smooth(method="glm", 
+              method.args = list(family="binomial"), 
+              se = FALSE) +
+  labs(x = "depth", y = "P(expensive)")
+#width
+prob3 <- ggplot(data = data, aes(x = width, y = prob.expensive)) +
+  geom_smooth(method="glm", 
+              method.args = list(family="binomial"), 
+              se = FALSE) +
+  labs(x = "width", y = "P(expensive)")
+
+grid.arrange(prob1,prob2,prob3, ncol=1)
+```
 
 
 # Conclusions {#sec:con}
