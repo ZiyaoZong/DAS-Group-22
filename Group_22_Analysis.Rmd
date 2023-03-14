@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #reading data
-data <- read.csv("~/Desktop/DAS_2/dataset22.csv")
+data <- read.csv("dataset22.csv")
 
 
 #loading libraries
@@ -117,22 +117,22 @@ We now turn our attention to which variables influence whether a product is cons
 
 #boxplot of width and expensive
 p1 <- ggplot(data= data, aes(x=width, y = Expensive, na.rm=TRUE)) +
-  geom_boxplot() +
+  geom_boxplot(fill ="steelblue") +
   labs(x="Width", y="Expensive", title= "Width of product")
 
 #boxplot of depth and expensive
 p2 <- ggplot(data= data, aes(x=depth, y = Expensive, na.rm=TRUE)) +
-  geom_boxplot() +
+  geom_boxplot(fill = "steelblue") +
   labs(x="Depth", y="Expensive", title="Depth of product")
 
 #boxplot of height and expensive
 p3 <-ggplot(data= data, aes(x=height, y = Expensive, na.rm=TRUE)) +
-  geom_boxplot() +
+  geom_boxplot(fill= "steelblue") +
   labs(x="Height", y="Expensive", title="Height of product")
 
 #boxplot of volume and expensive
 p4 <-ggplot(data= data, aes(x=volume, y = Expensive, na.rm=TRUE)) +
-  geom_boxplot() +
+  geom_boxplot(fill="steelblue") +
   labs(x="Volume", y= "Expensive", title= "Volume of product")
       
 grid.arrange(p1, p2, p3, p4 ,ncol=2)
@@ -231,23 +231,48 @@ ggplot(data, aes(y=category,  fill = Expensive, na.rm=TRUE)) +
 
 # Formal analysis {#sec:fda}
 
-```{r results = 'hide',echo=TRUE, warning=FALSE, message=FALSE}
+As the data provided to us had many incomplete observations we used Multiple imputation to give us a complete dataset. We then fitted a GLM using logistic regression using the logit link function. After starting with the full model we dropped non significant terms Sellable_online, category and other_colors. Each time a term was dropped we saw a significant improvement in BIC. We then tried to fit a model with interaction terms but none of these improved the model so we settled on a model including only the main effects of height, width and depth.
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
 
 #model full
 data1<-data %>% select(category, sellable_online, other_colors, depth, height, width, Expensive)
 model_full <- glm2(Expensive~., data = data1, family = binomial(link = "logit"))
-summary(model_full)
-drop1(model_full, test="LR")
-#drop depth
-data2<- data %>% select(category, sellable_online, other_colors, height, width, Expensive)
-model_drop_depth <- glm2(Expensive~., data = data2, family = binomial(link = "logit"))
-summary(model_drop_depth)
-drop1(model_drop_depth, test="LR")
-#drop sellable_online
-data3 <- data %>% select(category, other_colors, height, width, Expensive)
-model_drop_sellable_online <- glm2(Expensive~., data = data3, family = binomial(link = "logit"))
-summary(model_drop_sellable_online)
-drop1(model_drop_sellable_online, test="LR")
+#summ(model_full)
+#AIC= 284.8, BIC= 374.9, least significant term Sellable_online with p-value 0.99
+
+#model without sellable_online
+data2<- data %>% select(category, other_colors, depth, height, width, Expensive)
+model2 <- glm2(Expensive~., data = data2, family = binomial(link = "logit"))
+#summ(model2)
+#AIC= 285.8, BIC= 371.8, least significant term category with p-values 0.99
+
+#model without categories
+data3 <- data %>% select(other_colors, height, width, depth, Expensive)
+model3 <- glm2(Expensive~., data = data3, family = binomial(link = "logit"))
+#summ(model3)
+#AIC 281.36, BIC 301.83, least significant term other_colors with p-value 0.08
+
+#model without other_colors
+data4 <- data %>% select(height, width, depth, Expensive)
+model4 <- glm2(Expensive~., data = data4, family = binomial(link = "logit"))
+summ(model4)
+#AIC 274.28, BIC 290.65, all terms significant
+
+#trying models with an interaction
+mod5 <- glm2(Expensive~ height*depth + width,data = data4, family = binomial(link = "logit"))
+#summ(mod5)
+#AIC 297.80, BIC 318.27
+mod6 <- glm2(Expensive~ depth*width + height,data = data4, family = binomial(link = "logit"))
+#summ(mod6)
+#AIC 296.99, BIC 317.45
+mod7 <- glm2(Expensive~ width*height + depth,data = data4, family = binomial(link = "logit"))
+#summ(mod7)
+#AIC 298.55, BIC 319.02
+#none of these models are an improvement so we use model4
+
 ```
+
+
 
 # Conclusions {#sec:con}
