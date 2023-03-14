@@ -11,11 +11,12 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(tinytex.verbose = TRUE)
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #reading data
-data <- read.csv("C:\\Users\\jhono\\Documents\\glasgow\\DAS\\Group Project 2\\dataset22.csv")
+data <- read.csv("~/Desktop/DAS_2/dataset22.csv")
 
 
 #loading libraries
@@ -39,7 +40,22 @@ library(glm2)
 
 We have been tasked with finding out which properties of the furniture influence whether the products price is more than 1000 Saudi Riyals. Here we shall analyse the data provided to us by the company, working with continuous variables for price, width, depth and height as well as categorical variables for category, whether the product is sold online and whether the product is available in multiple colours.
 
-Section \ref{sec:eda} consists of an exploratory data analysis of the data. Section \ref{sec:fda} contains the contains the formal analysis of fitting the GLMs, the model selection and data visualizations resulting from the model selected. Section \ref{sec:con} contains our conclusions.
+Section \ref{sec:eda} consists of an exploratory data analysis of the data. Section \ref{sec:fda} contains the contains the formal analysis of fitting the GLMs, the model selection and data visualizations resulting from the model selected. Section \ref{sec:con} contains our conclusions. Before the Exploratory Data Analysis part we first summary the NA. From the table \ref{tab:summaryna} we can see that our "depth" data have 213 missing data which is almost 43 percentage of the dataset so we first delete the row which both depth, height and width are NA and then replace the missing data use the MI method.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,results='markup', fig.show='asis', eval=TRUE, table.pos="H"}
+
+data_na<-data %>% select(depth, height, width)
+
+summary_data <- data_na %>%
+  summarise_all(funs(na_count = sum(is.na(.))))
+
+summary_table <- summary_data %>%
+  kable(caption = '\\label{tab:summaryna} Summary table of the IKEA Saudi Arabia missing data') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+summary_table
+
+```
 
 ```{r results = 'hide', echo=FALSE, warning=FALSE, message=FALSE}
 #data tidying
@@ -69,9 +85,9 @@ data$Expensive[data$price<1000] <- 0
 data$Expensive[data$price>=1000] <- 1
 data$Expensive <- factor(data$Expensive, labels=c("No", "Yes"))
 #use Multiple Imputation to replace NA values
-imp <- mice(data, 5)
+imp <- mice(data, m=5, maxit = 50)
 #change imp to dataframe
-data <- complete(imp, action = 5)
+data <- complete(imp)
 
 #creating variable volume
 data <- data %>%
@@ -230,8 +246,7 @@ ggplot(data, aes(y=category,  fill = Expensive, na.rm=TRUE)) +
 ```
 
 # Formal analysis {#sec:fda}
-
-As the data provided to us had many incomplete observations we used Multiple imputation to give us a nearly complete dataset. Observations with no values for any of height,width and depth wre excluded. We then fitted a GLM using logistic regression using the logit link function. After starting with the full model we dropped non significant terms Sellable_online, category and other_colors. Each time a term was dropped we saw a significant improvement in BIC. We then tried to fit a model with interaction terms but none of these improved the model so we settled on a model including only the main effects of height, width and depth.
+As the data provided to us had many incomplete observations we used Multiple imputation to give us a nearly complete dataset. Observations with no values for any of height,width and depth are excluded. We then fitted a GLM using logistic regression using the logit link function. After starting with the full model we dropped non significant terms Sellable_online, category and other_colors. Each time a term was dropped we saw a significant improvement in BIC. We then tried to fit a model with interaction terms but none of these improved the model so we settled on a model including only the main effects of height, width and depth.
 
 ```{r,echo=FALSE, warning=FALSE, message=FALSE, fig.align = "center",fig.pos = "H" }
 
@@ -239,57 +254,77 @@ As the data provided to us had many incomplete observations we used Multiple imp
 data1<-data %>% select(category, sellable_online, other_colors, depth, height, width, Expensive)
 model_full <- glm2(Expensive~., data = data1, family = binomial(link = "logit"))
 #summ(model_full)
-#AIC= 284.8, BIC= 374.9, least significant term Sellable_online with p-value 0.99
+#AIC= 292.59, BIC= 382.65, least significant term Sellable_online with p-value 0.99
 
 #model without sellable_online
 data2<- data %>% select(category, other_colors, depth, height, width, Expensive)
 model2 <- glm2(Expensive~., data = data2, family = binomial(link = "logit"))
 #summ(model2)
-#AIC= 285.8, BIC= 371.8, least significant term category with p-values 0.99
+#AIC= 291.46, BIC= 377.41, least significant term category with p-values 0.99
 
 #model without categories
 data3 <- data %>% select(other_colors, height, width, depth, Expensive)
 model3 <- glm2(Expensive~., data = data3, family = binomial(link = "logit"))
 #summ(model3)
-#AIC 281.36, BIC 301.83, least significant term other_colors with p-value 0.08
+#AIC 306.88, BIC 327.35, least significant term other_colors with p-value 0.07
 
 #model without other_colors
 data4 <- data %>% select(height, width, depth, Expensive)
 model4 <- glm2(Expensive~., data = data4, family = binomial(link = "logit"))
 summ(model4)
-#AIC 274.28, BIC 290.65, all terms significant
+#AIC 308.37, BIC 324.74, all terms significant
 
 #trying models with an interaction
 mod5 <- glm2(Expensive~ height*depth + width,data = data4, family = binomial(link = "logit"))
 #summ(mod5)
-#AIC 297.80, BIC 318.27
+#AIC 305.96, BIC 326.43
 mod6 <- glm2(Expensive~ depth*width + height,data = data4, family = binomial(link = "logit"))
 #summ(mod6)
-#AIC 296.99, BIC 317.45
+#AIC 308.77, BIC 329.24
 mod7 <- glm2(Expensive~ width*height + depth,data = data4, family = binomial(link = "logit"))
 #summ(mod7)
-#AIC 298.55, BIC 319.02
+#AIC 309.88, BIC 330.34
 #none of these models are an improvement so we use model4
-
-
 ```
 
+We see that the intercept is negative, the coefficients for height, width and depth are positive. The coefficient for depth is larger than height and width. This suggests depth is more likely to influence the price while height and width are less likely to influence the price.
+
+The best fitted model as follows
+$$
+\ln(\displaystyle\frac{p}{1-p})=\alpha+\beta_{1}\cdot\textrm{height}+ \beta_{2} \cdot \textrm{width}+ \beta_{3} \cdot \textrm{depth}
+$$
+where $p$ = Prob(price over or equal to 1000) and 1 - $p$ = Prob(price under 1000)
+Hence, the log-odds of the price being expensive increase by $\beta_1$ for every one unit increase in height, $\beta_2$ for width, $\beta_3$ for depth. And the depth is the most important variable for price over 1000 Saudi Riyals.
 
 ```{r, echo=FALSE, fig.align='center', warning=FALSE, message=FALSE, results='hide'}
 #obtaining coefficients
 modcoefs <- round(coef(model4), 2)
-
 #table for 95%CI <----- can't make this format nicely
+```
+From the table \ref{tab:con} we can see that all the interval does not contain zero so all variables are significant.
+```{r, r, echo=FALSE, warning=FALSE, message=FALSE,results='markup', fig.show='asis', eval=TRUE, table.pos="H"}
 confint(model4) %>%
-  kable()
+  kable(caption = '\\label{tab:con} Confidence interval table') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+```
 
+Hence the point estimate for the log-odds is showing below, Figure \ref{fig:logodds}.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:logodds} Log-Odds in expensive",fig.show='asis'}
 #plotting log odds
-plot_model(model4, show.values = TRUE, transform = NULL,
-           title = "Log-Odds", show.p = FALSE)
+plot_model(model4, show.values = TRUE, transform = NULL, show.p = FALSE)
 
 #adding log odds into data
 data <- data %>%
   mutate(logodds.expensive = predict(model4))
+```
+The odds of the model is as follows
+$$
+\displaystyle\frac{p}{1-p}=exp(\alpha+\beta_{1}\cdot\textrm{height}+ \beta_{2} \cdot \textrm{width}+ \beta_{3} \cdot \textrm{depth})
+$$
+The point estimate for the odds is shows below, Figure \ref{fig:odds}.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:odds} Odds in expensive",fig.show='asis'}
 
 #creating odds
 model4 %>%
@@ -297,14 +332,16 @@ model4 %>%
   exp()
 
 #plotting odds
-plot_model(model4, show.values = TRUE, axis.lim = c(1,1.5),
-           title = "Odds (Expensive)", show.p = FALSE)
+plot_model(model4, show.values = TRUE, axis.lim = c(1,1.5), show.p = FALSE)
 
 #adding odds and probabilities to data
 data <- data %>%
   mutate(odds.expensive = exp(logodds.expensive)) %>%
   mutate(prob.expensive = fitted(model4))
+```
+Create the probability of price being expensive plot, the plot is as follows for each variable.
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE, eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:probplot} Probability plot",fig.show='asis'}
 #plotting probabilities
 #height
 prob1 <- ggplot(data = data, aes(x = height, y = prob.expensive)) +
@@ -330,3 +367,8 @@ grid.arrange(prob1,prob2,prob3, ncol=1)
 
 
 # Conclusions {#sec:con}
+
+Finally we can answer the question: Which properties of furniture influence whether they cost more than 1000 Saudi Riyals? 
+From the model we can see that, the furniture's category, whether they sell online and whether it have different colors may not have significant influence on the price over 1000 Saudi Riyals. While the height, depth and width of the furniture have significant influence on the price over 1000 Saudi Riyals and the furniture's depth have the biggest influence. And as the furniture become larger (the value height, depth and width become bigger) the probability of its price will be more expensive, which means its probability that the price over 1000 Saudi Riyals will close to one.
+
+
