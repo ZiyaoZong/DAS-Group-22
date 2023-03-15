@@ -1,5 +1,5 @@
 ---
-title: "Group_22_Analysis"
+title: "Determining What Factors Make A Product Expensive Or Not"
 author: "Fang Yang, Jonathan Whittle, Kainin Liu, Ziqi Yang and Ziyao Zong"
 date: "2023-03-08"
 output:
@@ -11,6 +11,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(tinytex.verbose = TRUE)
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -29,37 +30,76 @@ library(janitor)
 library(gridExtra)
 library(kableExtra)
 library(skimr)
+library(mice)
+library(Hmisc) 
+library(dplyr)
+library(glm2)
 ```
 
 # Introduction {#sec:intro}
 
 We have been tasked with finding out which properties of the furniture influence whether the products price is more than 1000 Saudi Riyals. Here we shall analyse the data provided to us by the company, working with continuous variables for price, width, depth and height as well as categorical variables for category, whether the product is sold online and whether the product is available in multiple colours.
 
-Section \ref{sec:eda} consists of an exploratory data analysis of the data. Section \ref{sec:fda} contains the contains the formal analysis of fitting the GLMs, the model selection and data visualizations resulting from the model selected. Section \ref{sec:con} contains our conclusions.
+Section \ref{sec:eda} consists of an exploratory data analysis of the data. Section \ref{sec:fda} contains the contains the formal analysis of fitting the General linear model using logistic regression, the model selection and data visualizations resulting from the model selected. Section \ref{sec:con} contains our conclusions. Before the Exploratory Data Analysis part we first address the missing values. From the table \ref{tab:summaryna} we can see that our "depth" data have 213 missing data points which is almost 43 percent of the dataset so we first delete the rows where all of depth, height and width are missing, leaving us with 443 observations. We then replaced the missing data using the Multiple Imputation method.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE,results='markup', fig.show='asis', eval=TRUE, table.pos="H"}
+
+data_na<-data %>% select(depth, height, width)
+
+summary_data <- data_na %>%
+  summarise_all(funs(na_count = sum(is.na(.))))
+
+summary_table <- summary_data %>%
+  kable(caption = '\\label{tab:summaryna} Summary table of the IKEA Saudi Arabia missing data') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+summary_table
+
+```
+
+```{r results = 'hide', echo=FALSE, warning=FALSE, message=FALSE}
 #data tidying
-#creating variable volume
-data <- data %>%
-  mutate(volume= height*depth*width)
 
+#delete the row which both depth, height and width are NA
+nas <- c()
+coun = 1
+for(i in 1:nrow(data)){
+  if(is.na(data$depth[i])){
+    if(is.na(data$height[i])){
+      if(is.na(data$width[i])){
+        nas[coun] = i
+        coun = coun + 1
+      }
+    }
+    else
+      next
+  }
+  else
+    next
+}
+data <- data[-nas, ]
+data = data[, -c(1:2)]
 #splitting price into categories expensive yes or no
 data$Expensive <- NA
 data$Expensive[data$price<1000] <- 0
 data$Expensive[data$price>=1000] <- 1
 data$Expensive <- factor(data$Expensive, labels=c("No", "Yes"))
-
-
+#use Multiple Imputation to replace NA values
+set.seed(1)
+imp <- mice(data, m=5, maxit = 50)
+#change imp to dataframe
+data <- complete(imp)
 
 #tidying category with irregular symbol
 #unique(data$category)
-#data[148,3]
-data[148,3] = "Cafe furniture"
+#data[131,1]
+data[131,1] = "Cafe furniture"
+
 ```
 
 # Exploratory Data Analysis {#sec:eda}
 
-As we are interested in whether a product is sold at more or less than 1000 Riyals, we dichotamised the variable for price into a categorical variable: Expenisive. Products sold for more than 1000 Riyals are denoted "Yes" and products sold for less than 1000 Riyals are denoted "No". Below we provide a summary table \ref{tab:summariesskim} for the numerical data and a table \ref{tab:percentage} showing the proportion of products considered expensive. From the summary table below we can see that the mean price is over 1000 Riyals.
+As we are interested in whether a product is sold at more or less than 1000 Riyals, we dichotamised the variable for price into a categorical variable: Expensive. Products sold for more than 1000 Riyals are denoted "Yes" and products sold for less than 1000 Riyals are denoted "No". Below we provide a summary table \ref{tab:summariesskim} for the numerical data and a table \ref{tab:percentage} showing the proportion of products considered expensive. From the summary table below we can see that the mean price is over 1000 Riyals.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE,results='markup', fig.show='asis', eval=TRUE, table.pos="H"}
 #create ikea_num data for numerical data
@@ -82,35 +122,35 @@ tabyl(data$Expensive) %>%
 
 ```
 
-We now turn our attention to which variables influence whether a product is considered expensive or not. From the boxplots, Figure \ref{fig:summary boxplot} below we can see that in terms of the continuous variables width appears to be the most important.
+We now turn our attention to which variables influence whether a product is considered expensive or not. From the boxplots, Figure \ref{fig:boxplot1}, Figure \ref{fig:boxplot2}, Figure \ref{fig:boxplot3} below we can see that in terms of the continuous variables width appears to be the most important.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:summary boxplot}  Summary boxplot",fig.show='asis'}
+```{r, echo=FALSE, warning=FALSE, message=FALSE,out.width="60%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:boxplot1} Boxplot of expensive and width",fig.show='asis'}
 #plots
 
 #boxplot of width and expensive
 p1 <- ggplot(data= data, aes(x=width, y = Expensive, na.rm=TRUE)) +
-  geom_boxplot() +
-  labs(x="Width", y="Expensive", title= "Width of product")
-
-#boxplot of depth and expensive
-p2 <- ggplot(data= data, aes(x=depth, y = Expensive, na.rm=TRUE)) +
-  geom_boxplot() +
-  labs(x="Depth", y="Expensive", title="Depth of product")
-
-#boxplot of height and expensive
-p3 <-ggplot(data= data, aes(x=height, y = Expensive, na.rm=TRUE)) +
-  geom_boxplot() +
-  labs(x="Height", y="Expensive", title="Height of product")
-
-#boxplot of volume and expensive
-p4 <-ggplot(data= data, aes(x=volume, y = Expensive, na.rm=TRUE)) +
-  geom_boxplot() +
-  labs(x="Volume", y= "Expensive", title= "Volume of product")
-      
-grid.arrange(p1, p2, p3, p4 ,ncol=2)
+  geom_boxplot(fill ="steelblue") +
+  labs(x="Width", y="Expensive")
+p1
 ```
 
-Checking the continuous variables for any high collinearity, we see from the scatterplot matrix, Figure \ref{fig:cor} that there is moderate positive correlation between depth and width and also between depth and height. As the strength is only moderate and the correlation between height and depth is very weak, there is not much concern regarding collinearity.
+```{r, echo=FALSE, warning=FALSE, message=FALSE,out.width="60%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:boxplot2} Boxplot of expensive and depth",fig.show='asis'}
+#boxplot of depth and expensive
+p2 <- ggplot(data= data, aes(x=depth, y = Expensive, na.rm=TRUE)) +
+  geom_boxplot(fill = "steelblue") +
+  labs(x="Depth", y="Expensive")
+p2
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,out.width="60%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:boxplot3} Boxplot of expensive and height",fig.show='asis'}
+#boxplot of height and expensive
+p3 <-ggplot(data= data, aes(x=height, y = Expensive, na.rm=TRUE)) +
+  geom_boxplot(fill= "steelblue") +
+  labs(x="Height", y="Expensive")
+p3
+```
+
+Checking the continuous variables for any high collinearity, we see from the scatterplot matrix, Figure \ref{fig:cor} that there is some weak positive correlation between depth and width and also between depth and height. As the strength is weak and the correlation between height and depth is very weak, there is not much concern regarding collinearity.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE,eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:cor} Scatterplot matrix",fig.show='asis'}
 
@@ -182,7 +222,7 @@ grid.arrange(bp1,bp2,ncol=2)
 
 From the plot, Figure \ref{bar:category} we see that categories is likely to be an influential factor. Wardrobes, Sofas and Armchairs and beds in particular have a high proportion of expensive products. Meanwhile Childrens furniture contains no expensive products at all. Some categories contain so few products that they are unlikely to be influential.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE, eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{bar:category}  Barplot of expensive and not expensive categories",fig.show='asis'}
+```{r, echo=FALSE, warning=FALSE, message=FALSE, eval = TRUE,out.width="100%",fig.align = "center",fig.pos = "H",fig.cap="\\label{bar:category}  Barplot of expensive and not expensive categories",fig.show='asis'}
 #expensive and categories
 #table
 t3 <- data %>% 
@@ -200,7 +240,150 @@ ggplot(data, aes(y=category,  fill = Expensive, na.rm=TRUE)) +
   theme(legend.position = "bottom") +
   ggtitle("Counts of expensive and not expensive categories")
 ```
+\newpage
 
 # Formal analysis {#sec:fda}
+To model are data we fitted a GLM using logistic regression using the logit link function. After starting with a model containing the main effects for the variables height, width, depth, categories, sellable_online and other_colors. We found that sellable_online was the least significant with a p-value of 1.00. The BIC for this model was and 382.7 respectively. We then fitted a model without the term for sellable_online. This second model had a lower value for BIC of 377.3 so we preferred this second model to the first. However, categories was not significant as all p-values were 1.00. We then fitted a third model with variables height, depth, width and other_colors. The BIC for this third model was 333.4 so the third model is preferred. The variable other_colors was not significant with a p-value of 0.19, so we fitted a fourth model with variables height, width and depth. This model had a BIC value of 329.1 so was preferred to the third model. Three models were then fitted with interaction terms for height and depth, depth and width and finally width and height respectively. However, none of these terms were significant in their models and all three models resulted in an increase in BIC so the model with variables for the main effects of height, width and depth was selected.
 
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE, fig.align = "center",fig.pos = "H",fig.show='asis' }
+
+#model full
+data1<-data %>% select(category, sellable_online, other_colors, depth, height, width, Expensive)
+model_full <- glm2(Expensive~., data = data1, family = binomial(link = "logit"))
+#summ(model_full)
+#AIC 292.66,BIC 382.72, least significant term Sellable_online with p-value 1.00
+
+#model without sellable_online
+data2<- data %>% select(category, other_colors, depth, height, width, Expensive)
+model2 <- glm2(Expensive~., data = data2, family = binomial(link = "logit"))
+#summ(model2)
+#AIC 291.37, BIC 377.34, least significant term category with p-values 0.99
+
+#model without categories
+data3 <- data %>% select(other_colors, height, width, depth, Expensive)
+model3 <- glm2(Expensive~., data = data3, family = binomial(link = "logit"))
+#summ(model3)
+#AIC 312.97, BIC 333.44, least significant term other_colors with p-value 0.19
+
+#model without other_colors
+data4 <- data %>% select(height, width, depth, Expensive)
+model4 <- glm2(Expensive~., data = data4, family = binomial(link = "logit"))
+summ(model4)
+#AIC  312.71, BIC 329.08, all terms significant
+
+#trying models with an interaction
+mod5 <- glm2(Expensive~ height*depth + width,data = data4, family = binomial(link = "logit"))
+#summ(mod5)
+#AIC 313.17, BIC 333.64
+mod6 <- glm2(Expensive~ depth*width + height,data = data4, family = binomial(link = "logit"))
+#summ(mod6)
+#AIC 310.30, BIC 330.77
+mod7 <- glm2(Expensive~ width*height + depth,data = data4, family = binomial(link = "logit"))
+#summ(mod7)
+#AIC 314.40, BIC 334.86
+#none of these models are an improvement so we use model4
+```
+
+
+Thus the best fitted model is as follows:
+$$
+\ln(\displaystyle\frac{p}{1-p})=\alpha+\beta_{1}\cdot\textrm{height}+ \beta_{2} \cdot \textrm{width}+ \beta_{3} \cdot \textrm{depth}
+$$
+$$
+=-6.65+0.01\cdot\textrm{height}+ 0.02\cdot \textrm{width}+ 0.05 \cdot \textrm{depth}
+$$
+
+where $p$ = Prob(price over or equal to 1000) and 1 - $p$ = Prob(price under 1000)
+We see that the intercept is negative while the coefficients for height, width and depth are positive. Hence, the log-odds of the price being expensive increase by 0.01 for every one unit increase in height, 0.02 for width, 0.05 for depth. This suggests that an increase in depth leads to the highest increase in probability that a product is expensive.
+
+
+```{r, echo=FALSE, fig.align='center', warning=FALSE, message=FALSE, results='hide'}
+#obtaining coefficients
+modcoefs <- round(coef(model4), 2)
+```
+
+\newpage
+From the table \ref{tab:con} we can see that all the intervals do not contain zero so all variables are significant.
+
+```{r, r, echo=FALSE, warning=FALSE, message=FALSE,results='markup', fig.show='asis', eval=TRUE, table.pos="H"}
+confint(model4) %>%
+  kable(caption = '\\label{tab:con} Confidence interval table') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+```
+
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:logodds} Log-Odds of expensive",fig.show='asis'}
+#plotting log odds
+plot_model(model4, show.values = TRUE, transform = NULL, show.p = FALSE)
+
+#adding log odds into data
+data <- data %>%
+  mutate(logodds.expensive = predict(model4))
+```
+
+Figure \ref{fig:logodds}, a plot of the log-odds for height, width and depth.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+#creating odds
+model4 %>%
+  coef() %>%
+  exp()
+```
+
+The odds of the model is as follows
+$$
+\displaystyle\frac{p}{1-p}=exp(\alpha+\beta_{1}\cdot\textrm{height}+ \beta_{2} \cdot \textrm{width}+ \beta_{3} \cdot \textrm{depth})\
+$$
+$$
+=0.0013+1.01\cdot\textrm{height}+ 1.02\cdot \textrm{width}+1.05\cdot \textrm{depth}
+$$
+This suggests that the coefficients for height, width and depth are all positive. And for each increase of 1 unit in height the odds of being expensive are 1.01 times those
+of the same height and for width is 1.02 times, depth is 1.05 times.
+
+A plot of the odds for height, width and depth is shown below, Figure \ref{fig:odds}.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:odds} Odds in expensive",fig.show='asis'}
+
+
+#plotting odds
+plot_model(model4, show.values = TRUE, axis.lim = c(1,1.5), show.p = FALSE)
+
+#adding odds and probabilities to data
+data <- data %>%
+  mutate(odds.expensive = exp(logodds.expensive)) %>%
+  mutate(prob.expensive = fitted(model4))
+```
+below plots showing how the probability of a product being expensive varies with the explanatory variables: height, depth and width.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, eval = TRUE,out.width="70%",fig.align = "center",fig.pos = "H",fig.cap="\\label{fig:probplot} Probability plots",fig.show='asis'}
+#plotting probabilities
+#height
+prob1 <- ggplot(data = data, aes(x = height, y = prob.expensive)) +
+  geom_smooth(method="glm", 
+              method.args = list(family="binomial"), 
+              se = FALSE) +
+  labs(x = "height", y = "P(expensive)")
+#depth
+prob2 <- ggplot(data = data, aes(x = depth, y = prob.expensive)) +
+  geom_smooth(method="glm", 
+              method.args = list(family="binomial"), 
+              se = FALSE) +
+  labs(x = "depth", y = "P(expensive)")
+#width
+prob3 <- ggplot(data = data, aes(x = width, y = prob.expensive)) +
+  geom_smooth(method="glm", 
+              method.args = list(family="binomial"), 
+              se = FALSE) +
+  labs(x = "width", y = "P(expensive)")
+
+grid.arrange(prob1,prob2,prob3, ncol=1)
+```
+\newpage
 # Conclusions {#sec:con}
+
+Finally we can answer the question: Which properties of furniture influence whether they cost more than 1000 Saudi Riyals? 
+From the model we can see that, the furniture's category, whether they sell online and whether it have different colors may not have significant influence on the price over 1000 Saudi Riyals. While the height, depth and width of the furniture all have significant influence on the whether the price is over 1000 Saudi Riyals, the furniture's depth has the greatest influence. As the furniture become larger (the values for height, depth and width increase) the probability that its price will be more than 1000 Saudi Riyals will increase, eventually converging to one.
+
+
